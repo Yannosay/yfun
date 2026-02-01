@@ -1,0 +1,87 @@
+body{
+  margin:0;
+  font-family:sans-serif;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:flex-start;
+  min-height:100vh;
+  background:#f0f0f0;
+}
+
+#startScreen{
+  display:flex;
+  width:100%;
+  height:100vh;
+}
+
+#startScreen button{
+  flex:1;
+  font-size:2em;
+  border:none;
+  cursor:pointer;
+  transition:0.2s;
+  border-radius:0;
+}
+
+#normalBtn{background:#aaa;}
+#ultimateBtn{background:#f55;}
+#ultimateBtn:hover{
+  animation:wiggle 0.2s infinite;
+  background:red;
+}
+
+@keyframes wiggle{
+  0%{transform:rotate(-2deg);}
+  50%{transform:rotate(2deg);}
+  100%{transform:rotate(-2deg);}
+}
+
+#gameScreen{
+  display:none;
+  flex-direction:column;
+  align-items:center;
+  margin-top:20px;
+}
+
+#gameContainer{
+  display:grid;
+  gap:5px;
+  margin-top:20px;
+}
+
+.cell{
+  background:#ddd;
+  border-radius:16px;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  font-size:60px;
+  cursor:pointer;
+  transition:0.1s;
+  position:relative;
+}
+
+.cell.invalid{
+  animation:shake 0.3s;
+}
+
+@keyframes shake{
+  0%{transform:translateX(0);}
+  25%{transform:translateX(-5px);}
+  50%{transform:translateX(5px);}
+  75%{transform:translateX(-5px);}
+  100%{transform:translateX(0);}
+}
+
+.win-line{
+  position:absolute;
+  background:limegreen;
+  height:6px;
+  width:0;
+  border-radius:3px;
+  top:0;
+  left:0;
+  transform-origin:center;
+  transition:all 0.5s ease;
+}
