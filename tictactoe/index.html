@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Tic Tac Toe</title>
+<title>Tic Tac Toe Multi-Mode</title>
 <style>
 body{
   margin:0;
@@ -18,50 +18,28 @@ body{
 
 h1{ margin:10px;}
 
-#login,#servers,#countdown,#game{
+#login,#gamemodeSelect,#servers,#countdown,#game{
   display:none;
   flex-direction:column;
   align-items:center;
 }
 
 button,input{
-  padding:10px;
-  margin:5px;
-  font-size:16px;
+  padding:10px 20px;
+  margin:10px;
+  font-size:18px;
   border:none;
-  border-radius:8px;
-  cursor:pointer;
-}
-
-#serverList{
-  margin-bottom:10px;
-}
-
-#playerList{
-  margin-top:10px;
-}
-
-#board{
-  display:grid;
-  grid-template-columns:repeat(3,80px);
-  grid-template-rows:repeat(3,80px);
-  gap:10px;
-  margin-top:20px;
-}
-
-.cell{
-  background:#eee;
   border-radius:12px;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  font-size:50px;
   cursor:pointer;
   transition:0.2s;
 }
 
-.cell.invalid{
-  animation:shake 0.3s;
+button:hover{opacity:0.9;}
+
+#ultimateMode:hover{
+  animation:shake 0.5s infinite;
+  background:red;
+  color:white;
 }
 
 @keyframes shake{
@@ -70,6 +48,29 @@ button,input{
   50%{transform:translateX(5px);}
   75%{transform:translateX(-5px);}
   100%{transform:translateX(0);}
+}
+
+#board{
+  display:grid;
+  grid-template-columns:repeat(3,100px);
+  grid-template-rows:repeat(3,100px);
+  gap:10px;
+  margin-top:20px;
+}
+
+.cell{
+  background:#eee;
+  border-radius:16px;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  font-size:60px;
+  cursor:pointer;
+  transition:0.2s;
+}
+
+.cell.invalid{
+  animation:shake 0.3s;
 }
 
 #turnText{margin-top:10px; font-weight:bold;}
@@ -85,6 +86,8 @@ button,input{
   transform-origin:center;
   transition: all 0.5s ease;
 }
+#playerList{margin-top:10px;}
+#serverListNormal,#serverListUltimate{margin-bottom:10px;}
 </style>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -96,12 +99,19 @@ button,input{
 
 <div id="login">
 <input id="name" placeholder="Username (4+)">
-<button onclick="login()">Join Server</button>
+<button onclick="login()">Next</button>
+</div>
+
+<div id="gamemodeSelect">
+<h3>Select Game Mode</h3>
+<button id="normalMode" onclick="selectMode('normal')">Normal Mode</button>
+<button id="ultimateMode" onclick="selectMode('ultimate')">Ultimate Mode</button>
 </div>
 
 <div id="servers">
 <h3>Choose Server</h3>
-<div id="serverList"></div>
+<div id="serverListNormal"></div>
+<div id="serverListUltimate"></div>
 </div>
 
 <div id="countdown">
@@ -133,45 +143,60 @@ try{
   db=firebase.database();
 }catch(e){console.log("Firebase offline");}
 
-let username="", server="", symbol="", turn="X";
+let username="", mode="", server="", symbol="", turn="X";
 let board=Array(9).fill("");
 let countdownInterval=null;
 let playersRef=null;
 
 document.getElementById("login").style.display="flex";
 
-// ===== LOGIN & SERVER =====
+// ===== LOGIN =====
 function login(){
   username=document.getElementById("name").value;
   if(username.length<4){ alert("Min 4 chars"); return; }
   document.getElementById("login").style.display="none";
+  document.getElementById("gamemodeSelect").style.display="flex";
+}
+
+// ===== GAMEMODE =====
+function selectMode(m){
+  mode=m;
+  document.getElementById("gamemodeSelect").style.display="none";
   showServers();
 }
 
+// ===== SERVERS =====
 function showServers(){
-  const div=document.getElementById("serverList");
-  div.innerHTML="";
-  for(let i=1;i<=5;i++){
-    const b=document.createElement("button");
-    b.innerText="Server "+i;
-    b.onclick=()=>joinServer("server"+i);
-    div.appendChild(b);
-  }
   document.getElementById("servers").style.display="flex";
+  const normalDiv=document.getElementById("serverListNormal");
+  const ultimateDiv=document.getElementById("serverListUltimate");
+  normalDiv.innerHTML="Normal Servers:<br>";
+  ultimateDiv.innerHTML="Ultimate Servers:<br>";
+  for(let i=1;i<=5;i++){
+    const b1=document.createElement("button");
+    b1.innerText="Server "+i;
+    b1.onclick=()=>joinServer('normal','server'+i);
+    normalDiv.appendChild(b1);
+    const b2=document.createElement("button");
+    b2.innerText="Server "+i;
+    b2.onclick=()=>joinServer('ultimate','server'+i);
+    ultimateDiv.appendChild(b2);
+  }
 }
 
-function joinServer(s){
+// ===== JOIN SERVER ATOMIC =====
+function joinServer(m,s){
+  mode=m;
   server=s;
-  document.getElementById("servers").style.display="none";
-
-  playersRef = db.ref("rooms/"+server+"/players");
-
-  playersRef.once("value").then(snap=>{
-    const players = snap.val()||{};
-    if(Object.keys(players).length>=2){ alert("Server full"); showServers(); return; }
-    symbol = Object.values(players).includes("X")? "O":"X";
-    const ref = playersRef.push();
-    ref.set({name:username,symbol:symbol});
+  playersRef=db.ref("rooms/"+mode+"/"+server+"/players");
+  playersRef.transaction(players=>{
+    players = players||{};
+    if(Object.keys(players).length>=2) return; // cancel
+    symbol = Object.values(players).includes("X")?"O":"X";
+    players["p"+Date.now()]={name:username,symbol:symbol};
+    return players;
+  },(err,committed,snap)=>{
+    if(!committed){ alert("Server full"); showServers(); return; }
     setupGameStart();
   });
 }
@@ -187,9 +212,8 @@ function setupGameStart(){
       document.getElementById("countText").innerText="Game starts in "+counter+"...";
       countdownInterval=setInterval(()=>{
         counter--;
-        if(counter>0){
-          document.getElementById("countText").innerText="Game starts in "+counter+"...";
-        } else {
+        if(counter>0) document.getElementById("countText").innerText="Game starts in "+counter+"...";
+        else {
           clearInterval(countdownInterval);
           document.getElementById("countdown").style.display="none";
           startGame();
@@ -210,7 +234,7 @@ function startGame(){
   buildBoard();
   updateTurn();
 
-  db.ref("rooms/"+server+"/state").on("value",snap=>{
+  db.ref("rooms/"+mode+"/"+server+"/state").on("value",snap=>{
     const d = snap.val();
     if(!d) return;
     board=d.board;
@@ -219,9 +243,9 @@ function startGame(){
     updateTurn();
   });
 
-  db.ref("rooms/"+server+"/state").once("value").then(snap=>{
+  db.ref("rooms/"+mode+"/"+server+"/state").once("value").then(snap=>{
     if(!snap.exists()){
-      db.ref("rooms/"+server+"/state").set({board,turn:"X"});
+      db.ref("rooms/"+mode+"/"+server+"/state").set({board,turn:"X"});
     }
   });
 }
@@ -248,8 +272,7 @@ function makeMove(i){
   if(checkWin(board)){
     renderBoard();
     drawWinLine(board);
-    alert(symbol+" wins!");
-    board=Array(9).fill("");
+    setTimeout(()=>{alert(symbol+" wins!"); board=Array(9).fill(""); renderBoard();},300);
   }
 
   turn = turn==="X"?"O":"X";
@@ -264,7 +287,7 @@ function flash(cell){
 }
 
 function sync(){
-  db.ref("rooms/"+server+"/state").set({board,turn});
+  db.ref("rooms/"+mode+"/"+server+"/state").set({board,turn});
 }
 
 function renderBoard(){
@@ -291,18 +314,17 @@ function drawWinLine(b){
   lineDiv.style.width="0";
   for(let line of wins){
     if(line.every(idx=>b[idx]===b[line[0]] && b[idx])){
-      const start=line[0],end=line[2];
       const boardDiv=document.getElementById("board");
-      const cellSize=boardDiv.children[0].offsetWidth + 10; // cell + gap
-      let top=0, left=0, width=cellSize*3, angle=0;
-      if(line[0]==0 && line[1]==1 && line[2]==2){top=cellSize*0; angle=0;} // top
-      else if(line[0]==3){top=cellSize; angle=0;} // middle row
-      else if(line[0]==6){top=cellSize*2; angle=0;} // bottom row
-      else if(line[0]==0 && line[1]==3){top=0; left=0; width=cellSize*3; angle=90;} // left col
-      else if(line[0]==1){top=0; left=cellSize; width=cellSize*3; angle=90;} // middle col
-      else if(line[0]==2){top=0; left=cellSize*2; width=cellSize*3; angle=90;} // right col
-      else if(line[0]==0 && line[1]==4){angle=45; width=cellSize*3; top=0; left=0;} // diag \
-      else if(line[0]==2 && line[1]==4){angle=-45; width=cellSize*3; top=0; left=0;} // diag /
+      const cellSize=boardDiv.children[0].offsetWidth + 10; 
+      let top=0,left=0,width=cellSize*3,angle=0;
+      if(line[0]==0 && line[1]==1){top=0; angle=0;}
+      else if(line[0]==3){top=cellSize; angle=0;}
+      else if(line[0]==6){top=cellSize*2; angle=0;}
+      else if(line[0]==0 && line[1]==3){top=0; left=0; width=cellSize*3; angle=90;}
+      else if(line[0]==1){top=0; left=cellSize; width=cellSize*3; angle=90;}
+      else if(line[0]==2){top=0; left=cellSize*2; width=cellSize*3; angle=90;}
+      else if(line[0]==0 && line[1]==4){angle=45;}
+      else if(line[0]==2 && line[1]==4){angle=-45;}
       lineDiv.style.top=top+"px";
       lineDiv.style.left=left+"px";
       lineDiv.style.transform=`rotate(${angle}deg)`;
