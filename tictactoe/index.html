@@ -2,21 +2,23 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Ultimate Tic Tac Toe</title>
+<title>Tic Tac Toe</title>
 <style>
 body{
   margin:0;
-  background:#0b0b0b;
-  color:white;
-  font-family:Consolas, monospace;
+  font-family:sans-serif;
   display:flex;
   flex-direction:column;
   align-items:center;
+  justify-content:center;
+  height:100vh;
+  background:#ddd;
+  color:#333;
 }
 
-h1{ text-shadow:0 0 15px magenta; }
+h1{ margin:10px;}
 
-#login,#servers,#game,#countdown{
+#login,#servers,#countdown,#game{
   display:none;
   flex-direction:column;
   align-items:center;
@@ -26,52 +28,40 @@ button,input{
   padding:10px;
   margin:5px;
   font-size:16px;
-  background:#1a1a1a;
-  color:#ff00ff;
   border:none;
+  border-radius:8px;
   cursor:pointer;
 }
 
-#ultimate{
+#serverList{
+  margin-bottom:10px;
+}
+
+#playerList{
+  margin-top:10px;
+}
+
+#board{
   display:grid;
-  grid-template-columns:repeat(3, auto);
+  grid-template-columns:repeat(3,80px);
+  grid-template-rows:repeat(3,80px);
   gap:10px;
   margin-top:20px;
-  position:relative;
-}
-
-.small{
-  display:grid;
-  grid-template-columns:repeat(3,70px);
-  grid-template-rows:repeat(3,70px);
-  gap:4px;
-  padding:5px;
-  background:#151515;
-  border:2px solid magenta;
-  transition:0.3s;
-  animation:wiggle 2s infinite;
-  position:relative;
-}
-
-@keyframes wiggle{
-  0%{transform:rotate(-1deg);}
-  50%{transform:rotate(1deg);}
-  100%{transform:rotate(-1deg);}
 }
 
 .cell{
-  background:#2a2a2a;
+  background:#eee;
+  border-radius:12px;
   display:flex;
-  align-items:center;
   justify-content:center;
-  font-size:40px;
+  align-items:center;
+  font-size:50px;
   cursor:pointer;
-  color:#ff00ff;
   transition:0.2s;
 }
 
 .cell.invalid{
-  animation:shake 0.2s;
+  animation:shake 0.3s;
 }
 
 @keyframes shake{
@@ -82,22 +72,18 @@ button,input{
   100%{transform:translateX(0);}
 }
 
-#turnText{
-  margin-top:10px;
-  font-size:20px;
-  color:#ff00ff;
-  text-shadow:0 0 5px magenta;
-}
+#turnText{margin-top:10px; font-weight:bold;}
 
 .win-line{
   position:absolute;
-  background:lime;
-  height:4px;
-  width:100%;
-  top:50%;
+  background:limegreen;
+  height:6px;
+  width:0;
+  border-radius:3px;
+  top:0;
   left:0;
   transform-origin:center;
-  pointer-events:none;
+  transition: all 0.5s ease;
 }
 </style>
 
@@ -106,16 +92,16 @@ button,input{
 </head>
 <body>
 
-<h1>ULTIMATE TIC TAC TOE</h1>
+<h1>Tic Tac Toe</h1>
 
 <div id="login">
 <input id="name" placeholder="Username (4+)">
-<button onclick="login()">JOIN SERVER</button>
+<button onclick="login()">Join Server</button>
 </div>
 
 <div id="servers">
 <h3>Choose Server</h3>
-<div id="serverButtons"></div>
+<div id="serverList"></div>
 </div>
 
 <div id="countdown">
@@ -123,35 +109,38 @@ button,input{
 </div>
 
 <div id="game">
-<h2 id="turnText"></h2>
-<div id="ultimate"></div>
+<div id="playerList"></div>
+<div id="turnText"></div>
+<div style="position:relative;">
+  <div id="board"></div>
+  <div id="winLine" class="win-line"></div>
+</div>
 </div>
 
 <script>
 let db=null;
 try{
-const firebaseConfig = {
-  apiKey: "AIzaSyAIXlO32dXQaJSTJqnlLZ7ylapdfukuwCI",
-  authDomain: "drawtogether-fe581.firebaseapp.com",
-  databaseURL: "https://drawtogether-fe581-default-rtdb.firebaseio.com",
-  projectId: "drawtogether-fe581",
-  storageBucket: "drawtogether-fe581.firebasestorage.app",
-  messagingSenderId: "388416050930",
-  appId: "1:388416050930:web:eee1b382f33a137ce5226b"
-};
-firebase.initializeApp(firebaseConfig);
-db=firebase.database();
+  const firebaseConfig = {
+    apiKey: "AIzaSyAIXlO32dXQaJSTJqnlLZ7ylapdfukuwCI",
+    authDomain: "drawtogether-fe581.firebaseapp.com",
+    databaseURL: "https://drawtogether-fe581-default-rtdb.firebaseio.com",
+    projectId: "drawtogether-fe581",
+    storageBucket: "drawtogether-fe581.firebasestorage.app",
+    messagingSenderId: "388416050930",
+    appId: "1:388416050930:web:eee1b382f33a137ce5226b"
+  };
+  firebase.initializeApp(firebaseConfig);
+  db=firebase.database();
 }catch(e){console.log("Firebase offline");}
 
-let username="", server="", symbol="", turn="X", nextBoard=-1;
-let board=Array(9).fill().map(()=>Array(9).fill(""));
-let smallWins=Array(9).fill("");
+let username="", server="", symbol="", turn="X";
+let board=Array(9).fill("");
 let countdownInterval=null;
 let playersRef=null;
 
-// ===== LOGIN & SERVER =====
 document.getElementById("login").style.display="flex";
 
+// ===== LOGIN & SERVER =====
 function login(){
   username=document.getElementById("name").value;
   if(username.length<4){ alert("Min 4 chars"); return; }
@@ -160,7 +149,7 @@ function login(){
 }
 
 function showServers(){
-  const div=document.getElementById("serverButtons");
+  const div=document.getElementById("serverList");
   div.innerHTML="";
   for(let i=1;i<=5;i++){
     const b=document.createElement("button");
@@ -175,22 +164,23 @@ function joinServer(s){
   server=s;
   document.getElementById("servers").style.display="none";
 
-  // assign random symbol
   playersRef = db.ref("rooms/"+server+"/players");
+
   playersRef.once("value").then(snap=>{
-    const players = snap.val() || {};
-    const count = Object.keys(players).length;
-    symbol = (Math.random()<0.5 && count===0) ? "X" : (count===0?"O": (count===1 && !Object.values(players).includes("X")?"X":"O"));
+    const players = snap.val()||{};
+    if(Object.keys(players).length>=2){ alert("Server full"); showServers(); return; }
+    symbol = Object.values(players).includes("X")? "O":"X";
     const ref = playersRef.push();
     ref.set({name:username,symbol:symbol});
     setupGameStart();
   });
 }
 
-// ===== GAME START TIMER =====
+// ===== COUNTDOWN =====
 function setupGameStart(){
-  db.ref("rooms/"+server+"/players").on("value",snap=>{
-    const players = snap.val() || {};
+  playersRef.on("value",snap=>{
+    const players = snap.val()||{};
+    renderPlayerList(players);
     if(Object.keys(players).length===2){
       document.getElementById("countdown").style.display="flex";
       let counter=5;
@@ -209,6 +199,11 @@ function setupGameStart(){
   });
 }
 
+function renderPlayerList(players){
+  const div=document.getElementById("playerList");
+  div.innerHTML="Players: "+Object.values(players).map(p=>p.name+"("+p.symbol+")").join(", ");
+}
+
 // ===== GAME LOGIC =====
 function startGame(){
   document.getElementById("game").style.display="flex";
@@ -219,99 +214,101 @@ function startGame(){
     const d = snap.val();
     if(!d) return;
     board=d.board;
-    smallWins=d.smallWins;
     turn=d.turn;
-    nextBoard=d.nextBoard;
-    render();
+    renderBoard();
     updateTurn();
   });
 
-  // initialize state if empty
   db.ref("rooms/"+server+"/state").once("value").then(snap=>{
     if(!snap.exists()){
-      db.ref("rooms/"+server+"/state").set({board,smallWins,turn,nextBoard});
+      db.ref("rooms/"+server+"/state").set({board,turn:"X"});
     }
   });
 }
 
 function buildBoard(){
-  const U=document.getElementById("ultimate");
-  U.innerHTML="";
-  for(let s=0;s<9;s++){
-    const small=document.createElement("div");
-    small.className="small";
-    for(let c=0;c<9;c++){
-      const cell=document.createElement("div");
-      cell.className="cell";
-      cell.onclick=()=>move(s,c);
-      small.appendChild(cell);
-    }
-    U.appendChild(small);
+  const boardDiv=document.getElementById("board");
+  boardDiv.innerHTML="";
+  for(let i=0;i<9;i++){
+    const cell=document.createElement("div");
+    cell.className="cell";
+    cell.onclick=()=>makeMove(i);
+    boardDiv.appendChild(cell);
   }
-  render();
+  renderBoard();
 }
 
-function move(s,c){
-  const cell = document.getElementById("ultimate").children[s].children[c];
+function makeMove(i){
+  const cell=document.getElementById("board").children[i];
+  if(turn!==symbol){ flash(cell); return; }
+  if(board[i]){ flash(cell); return; }
 
-  if(turn!==symbol){ flashCell(cell); return; }
-  if(nextBoard!=-1 && s!=nextBoard){ flashCell(cell); return; }
-  if(board[s][c]){ flashCell(cell); return; }
+  board[i]=symbol;
 
-  board[s][c]=symbol;
-
-  if(check(board[s])) smallWins[s]=symbol;
-  if(check(smallWins)){
-    render();
-    drawWinLine(smallWins);
-    alert(symbol+" WINS GAME");
-    smallWins.fill("");
-    board=Array(9).fill().map(()=>Array(9).fill(""));
+  if(checkWin(board)){
+    renderBoard();
+    drawWinLine(board);
+    alert(symbol+" wins!");
+    board=Array(9).fill("");
   }
 
-  nextBoard = (smallWins[c]) ? -1 : c;
-  turn = turn=="X"?"O":"X";
-
+  turn = turn==="X"?"O":"X";
   sync();
-  render();
+  renderBoard();
   updateTurn();
 }
 
-function flashCell(cell){
+function flash(cell){
   cell.classList.add("invalid");
-  setTimeout(()=>cell.classList.remove("invalid"),200);
+  setTimeout(()=>cell.classList.remove("invalid"),300);
 }
 
 function sync(){
-  if(!db) return;
-  db.ref("rooms/"+server+"/state").set({board,smallWins,turn,nextBoard});
+  db.ref("rooms/"+server+"/state").set({board,turn});
 }
 
-function render(){
-  const U=document.getElementById("ultimate").children;
-  for(let s=0;s<9;s++){
-    U[s].classList.toggle("active", nextBoard==-1 || nextBoard==s);
-    if(smallWins[s]) U[s].style.borderColor="lime"; else U[s].style.borderColor="magenta";
-    const cells=U[s].children;
-    for(let c=0;c<9;c++){
-      cells[c].innerText=board[s][c]||"";
-    }
+function renderBoard(){
+  const boardDiv=document.getElementById("board");
+  for(let i=0;i<9;i++){
+    boardDiv.children[i].innerText=board[i]||"";
   }
 }
 
 function updateTurn(){
-  document.getElementById("turnText").innerText="You are: "+symbol+" | Turn: "+turn;
+  document.getElementById("turnText").innerText="You: "+symbol+" | Turn: "+turn;
 }
 
 // ===== CHECK WIN =====
-function check(a){
-  const L=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
-  return L.some(l=>a[l[0]] && a[l[0]]==a[l[1]] && a[l[0]]==a[l[2]]);
+function checkWin(b){
+  const wins=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+  return wins.some(line=>line.every(idx=>b[idx]===b[line[0]] && b[idx]));
 }
 
-// ===== WIN LINE =====
-function drawWinLine(smallWins){
-  // placeholder, can add SVG or div lines
+// ===== WIN LINE ANIMATION =====
+function drawWinLine(b){
+  const wins=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+  const lineDiv=document.getElementById("winLine");
+  lineDiv.style.width="0";
+  for(let line of wins){
+    if(line.every(idx=>b[idx]===b[line[0]] && b[idx])){
+      const start=line[0],end=line[2];
+      const boardDiv=document.getElementById("board");
+      const cellSize=boardDiv.children[0].offsetWidth + 10; // cell + gap
+      let top=0, left=0, width=cellSize*3, angle=0;
+      if(line[0]==0 && line[1]==1 && line[2]==2){top=cellSize*0; angle=0;} // top
+      else if(line[0]==3){top=cellSize; angle=0;} // middle row
+      else if(line[0]==6){top=cellSize*2; angle=0;} // bottom row
+      else if(line[0]==0 && line[1]==3){top=0; left=0; width=cellSize*3; angle=90;} // left col
+      else if(line[0]==1){top=0; left=cellSize; width=cellSize*3; angle=90;} // middle col
+      else if(line[0]==2){top=0; left=cellSize*2; width=cellSize*3; angle=90;} // right col
+      else if(line[0]==0 && line[1]==4){angle=45; width=cellSize*3; top=0; left=0;} // diag \
+      else if(line[0]==2 && line[1]==4){angle=-45; width=cellSize*3; top=0; left=0;} // diag /
+      lineDiv.style.top=top+"px";
+      lineDiv.style.left=left+"px";
+      lineDiv.style.transform=`rotate(${angle}deg)`;
+      setTimeout(()=>{lineDiv.style.width=width+"px";},50);
+    }
+  }
 }
 </script>
 </body>
