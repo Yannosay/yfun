@@ -16,7 +16,7 @@ body{
 
 h1{ text-shadow:0 0 15px magenta; }
 
-#login,#servers,#game{
+#login,#servers,#game,#countdown{
   display:none;
   flex-direction:column;
   align-items:center;
@@ -35,7 +35,7 @@ button,input{
 #ultimate{
   display:grid;
   grid-template-columns:repeat(3, auto);
-  gap:15px;
+  gap:10px;
   margin-top:20px;
   position:relative;
 }
@@ -49,11 +49,14 @@ button,input{
   background:#151515;
   border:2px solid magenta;
   transition:0.3s;
+  animation:wiggle 2s infinite;
   position:relative;
 }
 
-.small.active{
-  box-shadow:0 0 25px magenta inset;
+@keyframes wiggle{
+  0%{transform:rotate(-1deg);}
+  50%{transform:rotate(1deg);}
+  100%{transform:rotate(-1deg);}
 }
 
 .cell{
@@ -71,19 +74,19 @@ button,input{
   animation:shake 0.2s;
 }
 
-#turnText{
-  margin-top:10px;
-  font-size:20px;
-  color:#ff00ff;
-  text-shadow:0 0 5px magenta;
-}
-
 @keyframes shake{
   0%{transform:translateX(0);}
   25%{transform:translateX(-5px);}
   50%{transform:translateX(5px);}
   75%{transform:translateX(-5px);}
   100%{transform:translateX(0);}
+}
+
+#turnText{
+  margin-top:10px;
+  font-size:20px;
+  color:#ff00ff;
+  text-shadow:0 0 5px magenta;
 }
 
 .win-line{
@@ -107,13 +110,16 @@ button,input{
 
 <div id="login">
 <input id="name" placeholder="Username (4+)">
-<button onclick="login()">START</button>
+<button onclick="login()">JOIN SERVER</button>
 </div>
 
 <div id="servers">
-<h3>Servers</h3>
+<h3>Choose Server</h3>
 <div id="serverButtons"></div>
-<button id="startGameBtn" disabled onclick="startGame()">START GAME</button>
+</div>
+
+<div id="countdown">
+<h2 id="countText">Game starts in 5...</h2>
 </div>
 
 <div id="game">
@@ -122,8 +128,6 @@ button,input{
 </div>
 
 <script>
-document.getElementById("login").style.display="flex";
-
 let db=null;
 try{
 const firebaseConfig = {
@@ -142,56 +146,77 @@ db=firebase.database();
 let username="", server="", symbol="", turn="X", nextBoard=-1;
 let board=Array(9).fill().map(()=>Array(9).fill(""));
 let smallWins=Array(9).fill("");
-let afkTimeout=null;
+let countdownInterval=null;
+let playersRef=null;
 
-// ===== LOGIN =====
+// ===== LOGIN & SERVER =====
+document.getElementById("login").style.display="flex";
+
 function login(){
-  let n=document.getElementById("name").value;
-  if(n.length<4){ alert("min 4 chars"); return; }
-  username=n;
+  username=document.getElementById("name").value;
+  if(username.length<4){ alert("Min 4 chars"); return; }
   document.getElementById("login").style.display="none";
-  document.getElementById("servers").style.display="flex";
-  createServers();
+  showServers();
 }
 
-// ===== SERVERS =====
-function createServers(){
-  let div=document.getElementById("serverButtons");
+function showServers(){
+  const div=document.getElementById("serverButtons");
   div.innerHTML="";
   for(let i=1;i<=5;i++){
-    let b=document.createElement("button");
+    const b=document.createElement("button");
     b.innerText="Server "+i;
     b.onclick=()=>joinServer("server"+i);
     div.appendChild(b);
   }
+  document.getElementById("servers").style.display="flex";
 }
 
 function joinServer(s){
   server=s;
-  document.getElementById("startGameBtn").disabled=false;
-  if(!db) return;
+  document.getElementById("servers").style.display="none";
 
-  // assign symbol based on first player in server
-  db.ref("rooms/"+server+"/players").once("value").then(snap=>{
+  // assign random symbol
+  playersRef = db.ref("rooms/"+server+"/players");
+  playersRef.once("value").then(snap=>{
     const players = snap.val() || {};
-    symbol = Object.keys(players).length===0 ? "X" : "O";
-    let ref = db.ref("rooms/"+server+"/players").push();
-    ref.set({name:username, symbol:symbol});
-    setupAfkReset();
+    const count = Object.keys(players).length;
+    symbol = (Math.random()<0.5 && count===0) ? "X" : (count===0?"O": (count===1 && !Object.values(players).includes("X")?"X":"O"));
+    const ref = playersRef.push();
+    ref.set({name:username,symbol:symbol});
+    setupGameStart();
   });
 }
 
-// ===== GAME =====
+// ===== GAME START TIMER =====
+function setupGameStart(){
+  db.ref("rooms/"+server+"/players").on("value",snap=>{
+    const players = snap.val() || {};
+    if(Object.keys(players).length===2){
+      document.getElementById("countdown").style.display="flex";
+      let counter=5;
+      document.getElementById("countText").innerText="Game starts in "+counter+"...";
+      countdownInterval=setInterval(()=>{
+        counter--;
+        if(counter>0){
+          document.getElementById("countText").innerText="Game starts in "+counter+"...";
+        } else {
+          clearInterval(countdownInterval);
+          document.getElementById("countdown").style.display="none";
+          startGame();
+        }
+      },1000);
+    }
+  });
+}
+
+// ===== GAME LOGIC =====
 function startGame(){
-  document.getElementById("servers").style.display="none";
   document.getElementById("game").style.display="flex";
   buildBoard();
   updateTurn();
 
-  if(!db) return;
-
   db.ref("rooms/"+server+"/state").on("value",snap=>{
-    const d=snap.val();
+    const d = snap.val();
     if(!d) return;
     board=d.board;
     smallWins=d.smallWins;
@@ -199,7 +224,6 @@ function startGame(){
     nextBoard=d.nextBoard;
     render();
     updateTurn();
-    resetAfkTimer();
   });
 
   // initialize state if empty
@@ -210,15 +234,14 @@ function startGame(){
   });
 }
 
-// ===== BOARD BUILD =====
 function buildBoard(){
-  let U=document.getElementById("ultimate");
+  const U=document.getElementById("ultimate");
   U.innerHTML="";
   for(let s=0;s<9;s++){
-    let small=document.createElement("div");
+    const small=document.createElement("div");
     small.className="small";
     for(let c=0;c<9;c++){
-      let cell=document.createElement("div");
+      const cell=document.createElement("div");
       cell.className="cell";
       cell.onclick=()=>move(s,c);
       small.appendChild(cell);
@@ -228,7 +251,6 @@ function buildBoard(){
   render();
 }
 
-// ===== MOVE =====
 function move(s,c){
   const cell = document.getElementById("ultimate").children[s].children[c];
 
@@ -253,46 +275,35 @@ function move(s,c){
   sync();
   render();
   updateTurn();
-  resetAfkTimer();
 }
 
-// flash invalid click
 function flashCell(cell){
   cell.classList.add("invalid");
   setTimeout(()=>cell.classList.remove("invalid"),200);
 }
 
-// ===== SYNC =====
 function sync(){
   if(!db) return;
   db.ref("rooms/"+server+"/state").set({board,smallWins,turn,nextBoard});
 }
 
-// ===== RENDER =====
 function render(){
-  let U=document.getElementById("ultimate").children;
+  const U=document.getElementById("ultimate").children;
   for(let s=0;s<9;s++){
     U[s].classList.toggle("active", nextBoard==-1 || nextBoard==s);
-    U[s].classList.remove("win");
-    if(smallWins[s]){
-      U[s].classList.add("win");
-    }
-    let cells=U[s].children;
+    if(smallWins[s]) U[s].style.borderColor="lime"; else U[s].style.borderColor="magenta";
+    const cells=U[s].children;
     for(let c=0;c<9;c++){
-      cells[c].innerText=board[s][c] || "";
-      cells[c].classList.remove("win");
-      if(board[s][c] && smallWins[s]==board[s][c]) cells[c].classList.add("win");
+      cells[c].innerText=board[s][c]||"";
     }
   }
 }
 
-// ===== TURN TEXT =====
 function updateTurn(){
-  document.getElementById("turnText").innerText=
-    "YOU ARE: "+symbol+" | TURN: "+turn+(nextBoard==-1?" ANY":" BOARD "+(nextBoard+1));
+  document.getElementById("turnText").innerText="You are: "+symbol+" | Turn: "+turn;
 }
 
-// ===== WIN CHECK =====
+// ===== CHECK WIN =====
 function check(a){
   const L=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
   return L.some(l=>a[l[0]] && a[l[0]]==a[l[1]] && a[l[0]]==a[l[2]]);
@@ -300,23 +311,7 @@ function check(a){
 
 // ===== WIN LINE =====
 function drawWinLine(smallWins){
-  // for simplicity: just alert now, can implement SVG line for classic cross later
-}
-
-// ===== AFK RESET =====
-function setupAfkReset(){
-  resetAfkTimer();
-}
-
-function resetAfkTimer(){
-  if(!db) return;
-  if(afkTimeout) clearTimeout(afkTimeout);
-  afkTimeout = setTimeout(async ()=>{
-    let snap = await db.ref("rooms/"+server+"/players").once("value");
-    if(!snap.exists() || Object.keys(snap.val()).length===0){
-      await db.ref("rooms/"+server).remove();
-    }
-  },2*60*1000);
+  // placeholder, can add SVG or div lines
 }
 </script>
 </body>
