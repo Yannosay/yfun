@@ -1,0 +1,8 @@
+Copyright (c) 2026 Yanno
+
+All Rights Reserved.
+
+This project, including all code, assets, designs, graphics, sounds, and related materials (collectively "the Project"), is the exclusive intellectual property of the author, Yanno.
+No person or entity may copy, modify, reproduce, distribute, publish, transmit, sublicense, sell, or otherwise exploit any part of the Project in any form or by any means, whether digital, physical, or otherwise, without the express written permission of the author.
+Permission to view or interact with this Project (for example, via GitHub Pages or any hosted version) does not grant any rights to use, modify, or redistribute the Project. Any unauthorized use of the Project may result in legal action.
+By interacting with this Project, you acknowledge that you have read, understood, and agreed that no rights are granted to you without explicit permission from the author.
