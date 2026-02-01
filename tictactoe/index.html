@@ -2,329 +2,46 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Fixed Meme Tic-Tac-Toe</title>
-<style>
-body {
-  margin:0;
-  font-family:sans-serif;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:flex-start;
-  min-height:100vh;
-  background:#eee;
-  color:#333;
-  padding-top:20px;
-}
-
-h1 {margin-bottom:20px;}
-
-#login,#gamemodeSelect,#servers,#countdown,#game {
-  display:none;
-  flex-direction:column;
-  align-items:center;
-}
-
-button,input {
-  padding:12px 20px;
-  margin:5px;
-  font-size:18px;
-  border:none;
-  border-radius:12px;
-  cursor:pointer;
-  transition:0.2s;
-}
-
-button:hover {opacity:0.9;}
-#serverList button.selected {background:#aaa;}
-
-#board {
-  display:grid;
-  grid-template-columns:repeat(3,100px);
-  grid-template-rows:repeat(3,100px);
-  gap:10px;
-  margin-top:20px;
-}
-
-.cell {
-  background:#ddd;
-  border-radius:16px;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  font-size:60px;
-  cursor:pointer;
-  transition:0.2s;
-  position:relative;
-}
-
-.cell.invalid {
-  animation:shake 0.3s;
-}
-
-@keyframes shake {
-  0%{transform:translateX(0);}
-  25%{transform:translateX(-5px);}
-  50%{transform:translateX(5px);}
-  75%{transform:translateX(-5px);}
-  100%{transform:translateX(0);}
-}
-
-#turnText, #playerList {margin-top:10px;font-weight:bold;}
-.win-line {
-  position:absolute;
-  background:limegreen;
-  height:6px;
-  width:0;
-  border-radius:3px;
-  top:0;
-  left:0;
-  transform-origin:center;
-  transition:all 0.5s ease;
-}
-</style>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meme Tic-Tac-Toe</title>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-
-<h1>Meme Tic-Tac-Toe</h1>
-
-<div id="login">
-  <input id="name" placeholder="Username (4+)" />
-  <button onclick="login()">Next</button>
+<div id="startScreen">
+  <button id="normalBtn">Normal Mode</button>
+  <button id="ultimateBtn">ULTIMATE TICTACTOE</button>
 </div>
 
-<div id="gamemodeSelect">
-  <h3>Select Game Mode</h3>
-  <button id="normalMode" onclick="selectMode('normal')">Normal Mode</button>
-</div>
-
-<div id="servers">
-  <h3>Choose Server</h3>
-  <div id="serverList"></div>
-</div>
-
-<div id="countdown">
-  <h2 id="countText">Game starts in 5...</h2>
-</div>
-
-<div id="game">
-  <div id="playerList"></div>
-  <div id="turnText"></div>
-  <div style="position:relative;">
-    <div id="board"></div>
-    <div id="winLine" class="win-line"></div>
-  </div>
+<div id="gameScreen">
+  <h2 id="turnText"></h2>
+  <div id="gameContainer"></div>
 </div>
 
 <script>
-let db=null;
-try{
-  const firebaseConfig = {
-    apiKey: "AIzaSyAIXlO32dXQaJSTJqnlLZ7ylapdfukuwCI",
-    authDomain: "drawtogether-fe581.firebaseapp.com",
-    databaseURL: "https://drawtogether-fe581-default-rtdb.firebaseio.com",
-    projectId: "drawtogether-fe581",
-    storageBucket: "drawtogether-fe581.firebasestorage.app",
-    messagingSenderId: "388416050930",
-    appId: "1:388416050930:web:eee1b382f33a137ce5226b"
-  };
-  firebase.initializeApp(firebaseConfig);
-  db=firebase.database();
-}catch(e){console.log("Firebase offline");}
+const startScreen=document.getElementById("startScreen");
+const gameScreen=document.getElementById("gameScreen");
+const container=document.getElementById("gameContainer");
+const turnText=document.getElementById("turnText");
 
-let username="", mode="", server="", symbol="", turn="X";
-let board=Array(9).fill("");
-let countdownInterval=null;
-let playersRef=null;
+document.getElementById("normalBtn").addEventListener("click",()=>{
+  startScreen.style.display="none";
+  gameScreen.style.display="flex";
+  container.innerHTML="";
+  turnText.innerText="X's Turn";
+  const script=document.createElement("script");
+  script.src="normal.js";
+  document.body.appendChild(script);
+});
 
-document.getElementById("login").style.display="flex";
-
-function login(){
-  username=document.getElementById("name").value;
-  if(username.length<4){ alert("Min 4 chars"); return; }
-  document.getElementById("login").style.display="none";
-  document.getElementById("gamemodeSelect").style.display="flex";
-}
-
-function selectMode(m){
-  mode=m;
-  document.getElementById("gamemodeSelect").style.display="none";
-  showServers();
-}
-
-function showServers(){
-  document.getElementById("servers").style.display="flex";
-  const list=document.getElementById("serverList");
-  list.innerHTML="";
-  for(let i=1;i<=5;i++){
-    const b=document.createElement("button");
-    b.innerText="Server "+i;
-    b.onclick=()=>joinServer('normal','server'+i,b);
-    list.appendChild(b);
-  }
-}
-
-function joinServer(m,s,btn){
-  mode=m;
-  server=s;
-  btn.classList.add("selected");
-  playersRef=db.ref("rooms/"+mode+"/"+server+"/players");
-  // atomic join
-  playersRef.transaction(players=>{
-    players = players||{};
-    if(Object.keys(players).length>=2) return;
-    symbol = Object.values(players).includes("X")? "O":"X";
-    players["p"+Date.now()]={name:username,symbol:symbol,lastActive:Date.now()};
-    return players;
-  },(err,committed,snap)=>{
-    if(!committed){ alert("Server full"); btn.classList.remove("selected"); return; }
-    setupGameStart();
-  });
-}
-
-function setupGameStart(){
-  playersRef.on("value",snap=>{
-    const players = snap.val()||{};
-    renderPlayerList(players);
-    if(Object.keys(players).length===2){
-      document.getElementById("countdown").style.display="flex";
-      let counter=5;
-      document.getElementById("countText").innerText="Game starts in "+counter+"...";
-      clearInterval(countdownInterval);
-      countdownInterval=setInterval(()=>{
-        counter--;
-        if(counter>0) document.getElementById("countText").innerText="Game starts in "+counter+"...";
-        else {
-          clearInterval(countdownInterval);
-          document.getElementById("countdown").style.display="none";
-          startGame();
-        }
-      },1000);
-    }
-  });
-}
-
-function renderPlayerList(players){
-  const div=document.getElementById("playerList");
-  div.innerHTML="Players: "+Object.values(players).map(p=>p.name+"("+p.symbol+")").join(", ");
-}
-
-function startGame(){
-  document.getElementById("game").style.display="flex";
-  buildBoard();
-  updateTurn();
-  db.ref("rooms/"+mode+"/"+server+"/state").on("value",snap=>{
-    const d = snap.val();
-    if(!d) return;
-    board=d.board;
-    turn=d.turn;
-    renderBoard();
-    updateTurn();
-  });
-  db.ref("rooms/"+mode+"/"+server+"/state").once("value").then(snap=>{
-    if(!snap.exists()){
-      db.ref("rooms/"+mode+"/"+server+"/state").set({board,turn:"X"});
-    }
-  });
-  setInterval(()=>checkAFK(),30000);
-}
-
-function checkAFK(){
-  playersRef.once("value").then(snap=>{
-    const players=snap.val()||{};
-    const now=Date.now();
-    let reset=false;
-    Object.values(players).forEach(p=>{
-      if(now-p.lastActive>120000) reset=true;
-    });
-    if(reset){
-      db.ref("rooms/"+mode+"/"+server).remove();
-      location.reload();
-    }
-  });
-}
-
-function buildBoard(){
-  const boardDiv=document.getElementById("board");
-  boardDiv.innerHTML="";
-  for(let i=0;i<9;i++){
-    const cell=document.createElement("div");
-    cell.className="cell";
-    cell.onclick=()=>makeMove(i);
-    boardDiv.appendChild(cell);
-  }
-  renderBoard();
-}
-
-function makeMove(i){
-  const cell=document.getElementById("board").children[i];
-  if(turn!==symbol){ flash(cell); return; }
-  if(board[i]){ flash(cell); return; }
-
-  board[i]=symbol;
-  if(checkWin(board)){
-    renderBoard();
-    drawWinLine(board);
-    setTimeout(()=>{alert(symbol+" wins!"); board=Array(9).fill(""); renderBoard();},300);
-  }
-  turn = turn==="X"?"O":"X";
-  sync();
-  renderBoard();
-  updateTurn();
-  playersRef.child(Object.keys(playersRef).find(k=>k)).update({lastActive:Date.now()});
-}
-
-function flash(cell){
-  cell.classList.add("invalid");
-  setTimeout(()=>cell.classList.remove("invalid"),300);
-}
-
-function sync(){
-  db.ref("rooms/"+mode+"/"+server+"/state").set({board,turn});
-}
-
-function renderBoard(){
-  const boardDiv=document.getElementById("board");
-  for(let i=0;i<9;i++){
-    boardDiv.children[i].innerText=board[i]||"";
-  }
-}
-
-function updateTurn(){
-  document.getElementById("turnText").innerText="You: "+symbol+" | Turn: "+turn;
-}
-
-function checkWin(b){
-  const wins=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
-  return wins.some(line=>line.every(idx=>b[idx]===b[line[0]] && b[idx]));
-}
-
-function drawWinLine(b){
-  const wins=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
-  const lineDiv=document.getElementById("winLine");
-  lineDiv.style.width="0";
-  for(let line of wins){
-    if(line.every(idx=>b[idx]===b[line[0]] && b[idx])){
-      const boardDiv=document.getElementById("board");
-      const cellSize=boardDiv.children[0].offsetWidth+10;
-      let top=0,left=0,width=cellSize*3,angle=0;
-      if(line[0]==0&&line[1]==1){top=0;angle=0;}
-      else if(line[0]==3){top=cellSize;angle=0;}
-      else if(line[0]==6){top=cellSize*2;angle=0;}
-      else if(line[0]==0&&line[1]==3){top=0;left=0;angle=90;width=cellSize*3;}
-      else if(line[0]==1){top=0;left=cellSize;angle=90;width=cellSize*3;}
-      else if(line[0]==2){top=0;left=cellSize*2;angle=90;width=cellSize*3;}
-      else if(line[0]==0&&line[1]==4){angle=45;}
-      else if(line[0]==2&&line[1]==4){angle=-45;}
-      lineDiv.style.top=top+"px";
-      lineDiv.style.left=left+"px";
-      lineDiv.style.transform=`rotate(${angle}deg)`;
-      setTimeout(()=>{lineDiv.style.width=width+"px";},50);
-    }
-  }
-}
+document.getElementById("ultimateBtn").addEventListener("click",()=>{
+  startScreen.style.display="none";
+  gameScreen.style.display="flex";
+  container.innerHTML="";
+  turnText.innerText="X's Turn";
+  const script=document.createElement("script");
+  script.src="ultimate.js";
+  document.body.appendChild(script);
+});
 </script>
 </body>
 </html>
