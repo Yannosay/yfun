@@ -45,14 +45,16 @@ const nicknameInput=document.getElementById("nicknameInput");
 const typingIndicator=document.getElementById("typingIndicator");
 const badWords=["badword1","badword2","asshole"];
 function containsBadWord(text){text=text.toLowerCase();return badWords.some(word=>text.includes(word))}
-async function sendMessage(){
+function sendMessage(){
 let text=msgInput.value.trim();
 if(!text) return;
-const bannedSnap=await bannedRef.child(userId).get();
-if(bannedSnap.exists()){msgInput.value="";return}
+bannedRef.child(userId).get().then(snap=>{
+if(snap.exists()){msgInput.value="";return}
 if(containsBadWord(text)){bannedRef.child(userId).set(true);msgInput.value="";return}
 chatRef.push({user:userId,nickname,nicknameColor:userColor,text,time:Date.now()});
-msgInput.value="";updateTyping(false)}
+msgInput.value="";updateTyping(false);
+});
+}
 let typingTimeout;
 function updateTyping(isTyping){typingRef.child(userId).set(isTyping?nickname:null)}
 msgInput.addEventListener("input",()=>{updateTyping(true);clearTimeout(typingTimeout);typingTimeout=setTimeout(()=>updateTyping(false),1500)});
