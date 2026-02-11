@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Draw Together</title>
+<style>
+html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#0b0b12;font-family:sans-serif;color:#fff}
+canvas{display:block}
+#ui{position:fixed;top:10px;left:50%;transform:translateX(-50%);display:flex;gap:6px;background:#141424;padding:8px 10px;border-radius:12px;box-shadow:0 0 20px #000;align-items:center}
+button,select,input{background:#1c1c30;border:none;color:#fff;padding:6px 10px;border-radius:8px}
+button:hover{background:#2a2a50;cursor:pointer}
+button:active{background:#6f5cff}
+button:disabled{opacity:.4;cursor:not-allowed}
+#voteStatus{margin-left:10px}
+</style>
+</head>
+<body>
+<div id="ui">
+<select id="tool">
+<option value="pen">Pen</option>
+<option value="line">Line</option>
+<option value="rect">Rect</option>
+<option value="circle">Circle</option>
+<option value="spray">Spray</option>
+</select>
+<input type="color" id="color" value="#ffffff">
+<input type="range" id="size" min="1" max="40" value="5">
+<button id="undo">Undo</button>
+<button id="redo">Redo</button>
+<button id="voteClear">Vote Clear</button>
+<span id="voteStatus"></span>
+</div>
+<canvas id="c"></canvas>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<script>
+const firebaseConfig={apiKey:"AIzaSyAIXlO32dXQaJSTJqnlLZ7ylapdfukuwCI",authDomain:"drawtogether-fe581.firebaseapp.com",databaseURL:"https://drawtogether-fe581-default-rtdb.firebaseio.com",projectId:"drawtogether-fe581",storageBucket:"drawtogether-fe581.appspot.com",messagingSenderId:"388416050930",appId:"1:388416050930:web:3fdd00f84c07dc8be5226b"};
+firebase.initializeApp(firebaseConfig);
+const db=firebase.database();
+const canvas=document.getElementById("c"),ctx=canvas.getContext("2d");
+function resize(){canvas.width=innerWidth;canvas.height=innerHeight}addEventListener("resize",resize);resize()
+const toolEl=document.getElementById("tool"),colorEl=document.getElementById("color"),sizeEl=document.getElementById("size")
+const undoBtn=document.getElementById("undo"),redoBtn=document.getElementById("redo"),voteBtn=document.getElementById("voteClear"),voteStatus=document.getElementById("voteStatus")
+let userId=localStorage.uid||crypto.randomUUID();localStorage.uid=userId
+let drawing=false,startX=0,startY=0,preview=null,shift=false
+let undoStack=[],redoStack=[],currentSession=[]
+let objects={}
+let presence=db.ref("presence/"+userId);presence.set(true);presence.onDisconnect().remove()
+let objectsRef=db.ref("objects"),votesRef=db.ref("clearVotes")
+
+document.addEventListener("keydown",e=>{if(e.key==="Shift")shift=true})
+document.addEventListener("keyup",e=>{if(e.key==="Shift")shift=false})
+
+function getCoords(e){if(e.touches && e.touches.length>0)return {x:e.touches[0].clientX,y:e.touches[0].clientY};return {x:e.offsetX||e.clientX,y:e.offsetY||e.clientY}}
+
+canvas.addEventListener("mousedown",startDraw)
+canvas.addEventListener("touchstart",startDraw)
+canvas.addEventListener("mousemove",drawMove)
+canvas.addEventListener("touchmove",drawMove,{passive:false})
+canvas.addEventListener("mouseup",endDraw)
+canvas.addEventListener("touchend",endDraw)
+
+function startDraw(e){e.preventDefault();drawing=true;let pos=getCoords(e);startX=pos.x;startY=pos.y;currentSession=[];updateButtons()}
+function drawMove(e){if(!drawing)return;let pos=getCoords(e),x=pos.x,y=pos.y;if(toolEl.value==="pen"){let obj=createObj(startX,startY,x,y,false);currentSession.push(obj);startX=x;startY=y}else if(toolEl.value==="spray"){let obj=createObj(x,y,x,y,false);currentSession.push(obj)}else if(["line","rect","circle"].includes(toolEl.value)){preview=createObj(startX,startY,x,y,false)}drawLoop();e.preventDefault()}
+function endDraw(e){if(!drawing)return; drawing=false;let pos=getCoords(e);if(["line","rect","circle"].includes(toolEl.value)){let obj=createObj(startX,startY,pos.x,pos.y,true);if(obj)currentSession.push(obj)}if(currentSession.length>0){let batch={};currentSession.forEach(o=>{let id=objectsRef.push().key;o.id=id;objects[id]=o;batch[id]=o});objectsRef.update(batch);undoStack.push(currentSession);if(undoStack.length>20)undoStack.shift();redoStack=[];currentSession=[]}preview=null;drawLoop();updateButtons()}
+
+function createObj(x1,y1,x2,y2,final){let t=toolEl.value,c=colorEl.value,s=parseInt(sizeEl.value)
+if(t==="pen")return {type:"linePath",x1,y1,x2,y2,color:c,size:s,user:userId,final:final}
+if(t==="line")return {type:"line",x1,y1,x2,y2,color:c,size:s,user:userId,final:final}
+if(t==="rect")return {type:"rect",x1,y1,x2,y2,color:c,size:s,user:userId,final:final}
+if(t==="circle"){let dx=x2-x1,dy=y2-y1;if(shift){let m=Math.max(Math.abs(dx),Math.abs(dy));dx=Math.sign(dx)*m;dy=Math.sign(dy)*m}return {type:"circle",x1,y1,x2:x1+dx,y2:y1+dy,color:c,size:s,user:userId,final:final}}
+if(t==="spray"){let points=[];for(let i=0;i<100;i++){let a=Math.random()*Math.PI*2,r=Math.random()*s*2;points.push([x1+Math.cos(a)*r,y1+Math.sin(a)*r])}return {type:"spray",points,color:c,size:s,user:userId,final:final}}
+return null
+}
+
+function drawObj(o){ctx.strokeStyle=o.color;ctx.fillStyle=o.color;ctx.lineWidth=o.size;ctx.lineCap="round"
+if(o.type==="line"){ctx.beginPath();ctx.moveTo(o.x1,o.y1);ctx.lineTo(o.x2,o.y2);ctx.stroke()}
+if(o.type==="rect"){ctx.strokeRect(o.x1,o.y1,o.x2-o.x1,o.y2-o.y1)}
+if(o.type==="circle"){ctx.beginPath();ctx.ellipse((o.x1+o.x2)/2,(o.y1+o.y2)/2,Math.abs(o.x2-o.x1)/2,Math.abs(o.y2-o.y1)/2,0,0,2*Math.PI);ctx.stroke()}
+if(o.type==="spray"){o.points.forEach(p=>ctx.fillRect(p[0],p[1],1,1))}
+if(o.type==="linePath"){ctx.beginPath();ctx.moveTo(o.x1,o.y1);ctx.lineTo(o.x2,o.y2);ctx.stroke()}
+}
+
+objectsRef.on("value",snap=>{objects=snap.val()||{};drawLoop()})
+function drawLoop(){ctx.clearRect(0,0,canvas.width,canvas.height);Object.values(objects).forEach(drawObj);if(preview)drawObj(preview);if(currentSession.length)currentSession.forEach(drawObj);updateButtons()}
+function updateButtons(){undoBtn.disabled=!undoStack.length;redoBtn.disabled=!redoStack.length}
+
+undoBtn.onclick=()=>{let s=undoStack.pop();if(!s)return;redoStack.push(s);s.forEach(o=>objectsRef.child(o.id).remove());drawLoop();updateButtons()}
+redoBtn.onclick=()=>{let s=redoStack.pop();if(!s)return;undoStack.push(s);s.forEach(o=>{let id=objectsRef.push().key;o.id=id;objectsRef.child(id).set(o)});drawLoop();updateButtons()}
+
+let countdown=null
+function updateVoteStatus(){votesRef.once("value").then(vsnap=>{let votes=vsnap.val()||{};db.ref("presence").once("value").then(ps=>{let online=Object.keys(ps.val()||{}).length;let voteCount=Object.keys(votes).length;let needed=Math.ceil(online/2)
+if(voteCount>=needed && !countdown){let t=5;voteStatus.textContent=`Clearing in ${t}s`;countdown=setInterval(()=>{t--;if(t>0)voteStatus.textContent=`Clearing in ${t}s`;else{clearInterval(countdown);countdown=null;objectsRef.remove();votesRef.remove();undoStack=[];redoStack=[];currentSession=[];objects={};drawLoop();voteStatus.textContent=""}},1000)}else{voteStatus.textContent=`${voteCount}/${needed} voted (${online} online)`}})})}
+
+function voteAction(e){e.preventDefault();votesRef.child(userId).set(true)}
+voteBtn.addEventListener("click",voteAction)
+voteBtn.addEventListener("touchend",voteAction)
+votesRef.on("value",updateVoteStatus)
+db.ref("presence").on("value",updateVoteStatus)
+</script>
+</body>
+</html>

@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Yannosay</title>
+  
+
+<style>
+    p {
+      font-family: Arial, sans-serif;
+    }
+.ohno{
+position:fixed;
+top:50%;
+left:50%;
+transform:translate(-50%,-50%);
+font-size:10vw;
+margin:0;
+text-align:center;
+transition:.2s;
+z-index:0;
+}
+
+.ohno:hover{
+transform:translate(-50%,-50%) scale(1.15);
+}
+
+</style>
+
+<style>
+.money{
+  position:fixed;
+  top:-60px;
+  pointer-events:none;
+  will-change:transform, filter;
+  animation:moneyFall linear forwards;
+}
+
+@keyframes moneyFall{
+  from{transform:translate3d(0,0,0) rotate(0deg);}
+  to{transform:translate3d(0,120vh,0) rotate(360deg);}
+}
+
+.text{
+  position:fixed;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  font-size:10vw;
+  margin:0;
+  text-align:center;
+  z-index:0;
+}
+</style>
+
+
+<script>
+function rainMoney(){
+  const m = document.createElement("img");
+  m.src = "https://freepngimg.com/thumb/money/37-money-png-image.png";
+  m.className = "money";
+
+  // random horizontal position
+  m.style.left = Math.random()*100 + "vw";
+
+  // random depth factor
+  const depth = Math.random(); // 0 = far back, 1 = very close
+  if(depth < 0.4){
+    m.style.zIndex = -1;
+    m.style.width = (Math.random()*30+25) + "px"; // smaller
+    m.style.filter = "blur(0px)";
+  } else if(depth < 0.8){
+    m.style.zIndex = 1;
+    m.style.width = (Math.random()*60+50) + "px";
+    m.style.filter = "blur(0px)";
+  } else {
+    m.style.zIndex = 5;
+    m.style.width = (Math.random()*90+80) + "px";
+    m.style.filter = "blur(3px)";
+  }
+
+  // animation speed varies slightly by depth
+  m.style.animationDuration = (Math.random()*2+2)*(1-depth*0.7) + "s";
+
+  m.addEventListener("animationend",()=>m.remove());
+  document.body.appendChild(m);
+}
+
+setInterval(rainMoney,120);
+</script>
+
+
+
+
+
+</head>
+<body>
+  <b><p class="ohno"> YOU'RE BROKE!</p><b>
+
+
+  
+<script>
+    console.log(document.querySelector('p').textContent);
+  </script>
+<script src="https://app.embed.im/confetti.js"></script>
+<script>
+function fire(){
+  if(window.confetti){
+    window.confetti();
+  }
+}
+
+function loop(){
+  fire();
+  setTimeout(loop,Math.random()*4000+1000);
+}
+
+window.addEventListener("load",loop);
+</script>
+<script src="https://app.embed.im/balloons.js" defer></script>
+
+
+</body>
+</html>

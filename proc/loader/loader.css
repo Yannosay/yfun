@@ -1,0 +1,46 @@
+#pageLoader{
+  position:fixed;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:99999;
+  pointer-events:none;
+  background:transparent;
+}
+
+.funDots{
+  display:flex;
+  gap:10px;
+}
+
+.funDots span{
+  width:14px;
+  height:14px;
+  border-radius:50%;
+  background:#ddd; /* colorless */
+  animation:jump 0.6s ease-in-out infinite alternate;
+}
+
+/* Add chaotic timing like Neal.fun */
+.funDots span:nth-child(2){
+  animation-delay:0.05s;
+}
+.funDots span:nth-child(3){
+  animation-delay:0.15s;
+}
+.funDots span:nth-child(4){
+  animation-delay:0.25s;
+}
+.funDots span:nth-child(5){
+  animation-delay:0.35s;
+}
+
+/* playful bounce */
+@keyframes jump{
+  0%   {transform:translateY(0) scale(1);}
+  25%  {transform:translateY(-10px) scale(1.1);}
+  50%  {transform:translateY(-20px) scale(1.2);}
+  75%  {transform:translateY(-15px) scale(0.9);}
+  100% {transform:translateY(0) scale(1);}
+}

@@ -1,0 +1,250 @@
+/* reset & basic */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Arial', sans-serif;
+}
+body {
+  background: #fdf6fb;
+  color: #333;
+  min-height: 100vh;
+}
+
+
+.navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #fff;
+  padding: 15px 40px;   /* thicker nav */
+  border-radius: 25px;  /* slightly rounder */
+  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 60px);
+  max-width: 1000px;
+  z-index: 100;
+  transition: all 0.3s ease;
+}
+
+.logo img {
+  height: 60px;  /* slightly bigger */
+  cursor: pointer;
+  transition: transform 0.25s ease;
+}
+.logo img:hover {
+  transform: scale(1.1);
+}
+
+.nav-links {
+  list-style: none;
+  display: flex;
+  gap: 30px;
+}
+
+.nav-links li {
+  position: relative;
+}
+
+.nav-links a {
+  text-decoration: none;
+  color: #333;
+  padding: 10px 16px;
+  border-radius: 14px;
+  font-weight: 600;
+  transition: background 0.25s ease, transform 0.25s ease, color 0.25s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.navbar > .nav-links > li > a:hover {
+  transform: translateY(-2px);
+  background: #ffe6f0;
+  color: #ff4fa3;
+}
+
+/* Dropdown links: remove lift */
+.dropdown li a:hover {
+  transform: none; /* no jumping */
+  background: #ffe6f0;
+  color: #ff4fa3;
+}
+
+
+.more-menu .arrow {
+  display: inline-block;
+  transition: transform 0.3s ease;
+}
+.more-menu:hover .arrow {
+  transform: rotate(180deg);
+}
+
+.more-menu .dropdown {
+  position: absolute;
+  top: 50px;
+  left: 0;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+  list-style: none;
+  min-width: 150px;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 0.35s ease, opacity 0.35s ease;
+}
+.more-menu:hover .dropdown {
+  max-height: 500px;
+  opacity: 1;
+}
+.dropdown li a {
+  display: block;
+  padding: 10px 16px;
+  transition: background 0.25s ease;
+}
+.dropdown li a:hover {
+  background: #ffe6f0;
+  color: #ff4fa3;
+}
+
+/* main content */
+main {
+  max-width: 900px;
+  margin: 140px auto 40px auto; /* account for fixed nav */
+  padding: 0 20px;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+h1 {
+  font-size: 2.8rem;
+  margin-bottom: 20px;
+  color: #a680ff;
+  transition: transform 0.25s ease;
+}
+h1:hover {
+  transform: scale(1.03);
+}
+
+p {
+  font-size: 1.2rem;
+  color: #555;
+  line-height: 1.6;
+  transition: color 0.3s ease;
+}
+p:hover {
+  color: #35275e;
+}
+
+/* underline animation for links 
+.nav-links li a::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -4px;
+  width: 0%;
+  height: 2px;
+  background: #ff80bf;
+  border-radius: 1px;
+  transition: width 0.3s ease, left 0.3s ease;
+}
+.nav-links li a:hover::after {
+  width: 100%;
+  left: 0;
+} */
+
+.site-footer {
+  margin-top: 60px;
+  display: flex;
+  justify-content: center;
+  padding: 20px 10px;
+}
+
+.footer-box {
+  background: #edbaff;
+  padding: 20px 30px;
+  border-radius: 25px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+  text-align: center;
+  color: #333;
+  max-width: 800px;
+  width: 100%;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+/*.footer-box:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 25px rgba(0,0,0,0.15);
+  color: #fefaff;
+}*/
+
+.logo {
+  position: absolute;
+  left: 30px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: auto;
+  height: auto;
+  pointer-events: auto;
+}
+
+.logo img {
+  max-height: 60px;
+  width: auto;
+  transition: transform 0.25s ease;
+}
+
+.logo img:hover {
+  transform: scale(1.2);
+}
+
+.navbar::before {
+  content: '';
+  display: block;
+  width: 150px;
+}
+
+main {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, 440px);
+  justify-content: center;
+  column-gap: 20px;
+  row-gap: 20px;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 2rem;
+  padding-top: calc(64px + 5rem);
+}
+
+main > .card {
+  width: 440px;
+  height: 174px;
+  border-radius: 16px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  background: #f7f7f7;
+  border: 3px solid #000000;
+}
+
+main > .card:hover {
+  transform: scale(1.03);
+  box-shadow: 3px 6px 10px rgba(0,0,0,0.1);
+}
+
+main > .card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* highlights the current active page button*/
+.dropdown li a.active {
+  background: #ffe6f0;
+  color: #ff4fa3;
+}

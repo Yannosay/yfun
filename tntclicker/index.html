@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>TNT Clicker</title>
+<style>
+  html, body {
+    margin:0; padding:0; overflow:hidden;
+    background:#87CEEB;
+    font-family:'Minecraft', monospace;
+    user-select:none;
+  }
+  #score {
+    position: fixed; top:20px; left:20px;
+    font-size:2rem; color:#fff;
+    text-shadow:0 0 10px #000;
+  }
+  .block {
+    position:absolute;
+    width:50px; height:50px;
+    cursor:pointer;
+    background-size:cover;
+    transition: transform 0.2s;
+  }
+  .block:hover { transform: scale(1.2) rotate(15deg); }
+</style>
+</head>
+<body>
+<div id="score">0</div>
+<script>
+let score = 0;
+const scoreDiv = document.getElementById('score');
+function random(min,max){ return Math.random()*(max-min)+min; }
+
+const textures = [
+  'https://media.tenor.com/u2TVO1QUeggAAAAj/tnt-explosion.gif'
+];
+
+function createBlock(){
+    const div = document.createElement('div');
+    div.className='block';
+    div.style.left = random(0,window.innerWidth-50)+'px';
+    div.style.top = random(0,window.innerHeight-50)+'px';
+    div.style.backgroundImage = `url(${textures[Math.floor(random(0,textures.length))]})`;
+    document.body.appendChild(div);
+
+    let vx = random(-3,3);
+    let vy = random(-3,3);
+
+    const interval = setInterval(()=>{
+        let x = parseFloat(div.style.left);
+        let y = parseFloat(div.style.top);
+        x += vx; y += vy;
+        if(x<0 || x>window.innerWidth-50) vx*=-1;
+        if(y<0 || y>window.innerHeight-50) vy*=-1;
+        div.style.left = x+'px';
+        div.style.top = y+'px';
+    },16);
+
+    div.onclick=()=>{
+        score += Math.floor(random(1,10));
+        scoreDiv.textContent = score;
+        explode(div);
+        clearInterval(interval);
+    }
+}
+
+function explode(div){
+    const expl = document.createElement('div');
+    expl.style.position='absolute';
+    expl.style.width='50px';
+    expl.style.height='50px';
+    expl.style.left=div.style.left;
+    expl.style.top=div.style.top;
+    expl.style.background='url(https://i.pinimg.com/originals/43/7e/60/437e60c3fe83d636e7f514fac5a6e39e.gif)';
+    expl.style.backgroundSize='cover';
+    expl.style.pointerEvents='none';
+    document.body.appendChild(expl);
+
+    let scale=1;
+    const anim = setInterval(()=>{
+        scale+=0.15;
+        expl.style.transform=`scale(${scale}) rotate(${scale*20}deg)`;
+        expl.style.opacity=1-scale/4;
+        if(scale>4){ clearInterval(anim); expl.remove(); }
+    },16);
+    div.remove();
+}
+
+setInterval(createBlock,400);
+</script>
+</body>
+</html>

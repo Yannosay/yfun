@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Get Broke Fast</title>
+<style>
+body {margin:0;padding:0;background:#121212;font-family:'Segoe UI',sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;color:#f2f5ff;}
+#board {background:#1e1e1e;border:2px solid #555;border-radius:20px;padding:25px 30px;width:620px;text-align:center;box-shadow:0 0 30px rgba(0,0,0,0.7);box-sizing:border-box;}
+h1 {margin:0 0 10px 0;font-size:28px;color:#4caf50;}
+p {margin:5px 0;font-weight:bold;}
+#cash-display {font-size:18px;display:inline-block;min-width:80px;}
+#chart-container {position:relative;width:560px;height:220px;margin:20px auto;}
+canvas {width:560px;height:220px;background:#222;border:1px solid #444;border-radius:12px;display:block;}
+#price-label {position:absolute;font-size:16px;font-weight:bold;color:#4caf50;left:570px;pointer-events:none;user-select:none;}
+button {padding:12px 28px;margin:5px;border:none;border-radius:10px;font-weight:bold;font-size:16px;cursor:pointer;transition:0.2s;}
+button:hover {transform: scale(1.05);}
+#buy {background:#4caf50;color:white;}
+#sell {background:#f44336;color:white;}
+#progress-container {height:20px;width:100%;background:#333;border-radius:10px;overflow:hidden;margin:10px 0;}
+#progress {height:100%;width:0%;background:#f44336;transition:0.3s width linear;}
+#message {height:26px;font-weight:bold;font-size:16px;}
+</style>
+</head>
+<body>
+
+<div id="board">
+  <h1>Stock Market: get broke (very easy)</h1>
+  <p>Cash: $<span id="cash-display">1000</span> | Stocks: <span id="stocks">0</span></p>
+  <div id="chart-container">
+    <canvas id="stockChart" width="560" height="220"></canvas>
+    <div id="price-label">$50.00</div>
+  </div>
+  <div>
+    <button id="buy">Buy</button>
+    <button id="sell">Sell</button>
+  </div>
+  <div id="progress-container"><div id="progress"></div></div>
+  <p id="message"></p>
+</div>
+
+<script>
+let cash=1000, displayCash=1000, stocks=0, price=50, lastPrice=50;
+const loseThreshold=50;
+const priceHistory=[price];
+const trades=[];
+let buyCooldown=false;
+
+const cashEl=document.getElementById('cash-display');
+const stocksEl=document.getElementById('stocks');
+const messageEl=document.getElementById('message');
+const progressEl=document.getElementById('progress');
+const priceLabelEl=document.getElementById('price-label');
+const canvas=document.getElementById('stockChart');
+const ctx=canvas.getContext('2d');
+
+function animateCash(){
+  if(Math.abs(displayCash-cash)<0.01) return;
+  displayCash+=(cash-displayCash)*0.2;
+  cashEl.textContent=displayCash.toFixed(2);
+  requestAnimationFrame(animateCash);
+}
+
+function updateUI(){
+  stocksEl.textContent=stocks;
+  progressEl.style.width=Math.min((cash/1200)*100,100)+'%';
+  messageEl.textContent = cash<=loseThreshold?"You got broke! You win!":cash>=3000?"Too rich! You lose!":"";
+  drawChart();
+  animateCash();
+}
+
+function updatePrice(){
+  let change=(Math.random()-0.5)*30;
+  price=Math.max(1,price+change);
+  priceHistory.push(price);
+  if(priceHistory.length>1000) priceHistory.shift();
+  priceLabelEl.style.color = price>lastPrice ? '#4caf50':'#f44336';
+  priceLabelEl.style.transform='scale(1.2)';
+  setTimeout(()=>{priceLabelEl.style.transform='scale(1)';},200);
+  lastPrice=price;
+  updateUI();
+}
+
+function drawChart(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.strokeStyle='#555';
+  ctx.lineWidth=0.5;
+  for(let i=0;i<5;i++){
+    let y=i/4*canvas.height;
+    ctx.beginPath();
+    ctx.moveTo(0,y);
+    ctx.lineTo(canvas.width,y);
+    ctx.stroke();
+  }
+
+  const windowSize=100;
+  const startIndex=Math.max(0, priceHistory.length-windowSize);
+  const visibleHistory=priceHistory.slice(startIndex);
+  while(visibleHistory.length<windowSize) visibleHistory.unshift(0);
+
+  const maxPrice=Math.max(...visibleHistory);
+  const minPrice=Math.min(...visibleHistory);
+  const spacing=canvas.width/(windowSize-1);
+
+  ctx.strokeStyle='#4caf50';
+  ctx.lineWidth=2;
+  ctx.beginPath();
+  let endX,endY;
+  for(let i=0;i<visibleHistory.length;i++){
+    let x=canvas.width-(windowSize-i-1)*spacing;
+    let y=canvas.height-((visibleHistory[i]-minPrice)/(maxPrice-minPrice+1))*canvas.height;
+    if(i===0) ctx.moveTo(x,y);
+    else ctx.lineTo(x,y);
+    if(i===visibleHistory.length-1){ endX=x; endY=y; }
+  }
+  ctx.stroke();
+
+  ctx.fillStyle='#4caf50';
+  ctx.beginPath();
+  ctx.arc(endX,endY,5,0,Math.PI*2);
+  ctx.fill();
+  priceLabelEl.style.top=`${endY-10}px`;
+  priceLabelEl.textContent=`$${price.toFixed(2)}`;
+
+  trades.forEach(tr=>{
+    const tradeOffset = priceHistory.length - tr.index - 1;
+    if(tradeOffset<windowSize && tradeOffset>=0){
+      let x = canvas.width - tradeOffset*spacing;
+      let y = canvas.height - ((priceHistory[tr.index]-minPrice)/(maxPrice-minPrice+1))*canvas.height;
+      ctx.strokeStyle=tr.type==='buy'?'#4caf50':'#f44336';
+      ctx.lineWidth=1.5;
+      ctx.beginPath();
+      ctx.moveTo(x,0);
+      ctx.lineTo(x,canvas.height);
+      ctx.stroke();
+      ctx.fillStyle=tr.type==='buy'?'#4caf50':'#f44336';
+      ctx.beginPath();
+      ctx.arc(x,y,4,0,Math.PI*2);
+      ctx.fill();
+    }
+  });
+}
+
+document.getElementById('buy').addEventListener('click',()=>{
+  if(buyCooldown) return;
+  if(cash>=price){
+    cash-=price;
+    stocks++;
+    trades.push({index:priceHistory.length-1,type:'buy'});
+    updateUI();
+    buyCooldown=true;
+    setTimeout(()=>{buyCooldown=false;},250);
+  } else messageEl.textContent="Not enough cash!";
+});
+
+document.getElementById('sell').addEventListener('click',()=>{
+  if(stocks>0){ stocks--; cash+=price; trades.push({index:priceHistory.length-1,type:'sell'}); updateUI(); }
+  else messageEl.textContent="No stocks to sell!";
+});
+
+setInterval(updatePrice,1000);
+updateUI();
+
+setInterval(()=>{
+  if(cash<=50) setTimeout(()=>{window.location.href="youwin.html";},1000);
+},200);
+</script>
+
+</body>
+</html>
